@@ -9,3 +9,5 @@ python-dotenv
 paramiko
 pika
 base
+importlib_metadata
+supervisor==4.2.2

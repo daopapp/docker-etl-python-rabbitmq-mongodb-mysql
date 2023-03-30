@@ -4,11 +4,11 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: app
+    container_name: bi-app
     image: bi-app:latest
     restart: unless-stopped
     tty: true
     working_dir: /app
     volumes:
        - ./:/app
-       - ./supervisor/:/etc/supervisor/conf.d
+       - ./supervisor/conf.d/:/etc/supervisor/conf.d

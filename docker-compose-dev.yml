@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: app
+    container_name: bi-app
     image: bi-app:latest
     restart: unless-stopped
     tty: true
