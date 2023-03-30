@@ -1,4 +1,6 @@
 from datetime import datetime
+import time
+import random
 
 
 # Tratamento de Data
@@ -27,3 +29,10 @@ def get_max_value(data_list, key):
         return max(values)
     else:
         return None
+
+
+# Retorna um ID único
+def generate_id():
+    timestamp = hex(int(time.time()))[2:]
+    random_hex = ''.join(random.choice('0123456789abcdef') for _ in range(16))
+    return timestamp + random_hex
