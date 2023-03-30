@@ -1,5 +1,10 @@
 # Readme
 
+## Description
+    This project is a Docker-based solution for creating ETL processes in Python, using MongoDB and MySQL, with RabbitMQ queues. 
+    The main goal of the project is to connect to a MongoDB database, transform the data, and load it into a MySQL-based business intelligence system. 
+    The project is designed to handle event-driven architectures, with data processing taking place through a RabbitMQ queue rather than as a massive, full-database consumption.
+
 ## Deployment instructions
 
 ### Requirements
