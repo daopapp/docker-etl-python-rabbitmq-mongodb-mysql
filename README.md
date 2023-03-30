@@ -1,9 +1,10 @@
 # Readme
 
-## Description
-    This project is a Docker-based solution for creating ETL processes in Python, using MongoDB and MySQL, with RabbitMQ queues. 
-    The main goal of the project is to connect to a MongoDB database, transform the data, and load it into a MySQL-based business intelligence system. 
-    The project is designed to handle event-driven architectures, with data processing taking place through a RabbitMQ queue rather than as a massive, full-database consumption.
+Hey there! Welcome to our ETL project, where we use Docker to create event-driven architectures for ETL processes in Python, using MongoDB and MySQL with RabbitMQ queues.
+
+Our main goal is to connect to MongoDB, transform the data, and load it into a MySQL-based business intelligence system, with the added bonus of handling events through RabbitMQ queues, making our project efficient and reliable.
+
+Here are the steps to deploy and test your worker in both development and production environments:
 
 ## Deployment instructions
 
@@ -37,3 +38,5 @@
 ### Test your worker
     1. To test your worker, you need to create a python file inside `test` folder
     2. The file must be the rabbitmq connection and the worker that you want to test
+    
+We hope you enjoy working with our project and find it helpful. If you have any questions or concerns, please feel free to reach out to us. Happy coding!
