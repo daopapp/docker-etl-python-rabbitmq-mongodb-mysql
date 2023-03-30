@@ -1,0 +1,11 @@
+pymongo
+pandas
+mysql.connector
+numpy
+sshtunnel
+typing
+pymysql
+python-dotenv
+paramiko
+pika
+base
