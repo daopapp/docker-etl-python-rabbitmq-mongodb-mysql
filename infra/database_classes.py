@@ -17,12 +17,15 @@ db_mysql_host = os.getenv("DB_MYSQL_HOST")
 db_mysql_user = os.getenv("DB_MYSQL_USER")
 db_mysql_password = os.getenv("DB_MYSQL_PASSWORD")
 db_mysql_db = os.getenv("DB_MYSQL_DB")
+db_mysql_use_ssh = os.getenv("DB_MYSQL_USE_SSH")
 pem_key_str = os.getenv("PEM_KEY")
 pem_key_file = io.StringIO(pem_key_str)
 pem_key = paramiko.RSAKey.from_private_key(pem_key_file)
 
 
 class MongoDB:
+    _tunnel = None
+
     def __init__(self, collection_name, db_name, ssh_host=db_mongo_host, ssh_username=ssh_user, ssh_pkey=pem_key):
         self.ssh_host = ssh_host
         self.ssh_username = ssh_username
@@ -33,29 +36,36 @@ class MongoDB:
         self._create_connection()
 
     def _create_connection(self):
-        self.tunnel = SSHTunnelForwarder(
-            (self.ssh_host, 22),
-            ssh_username=self.ssh_username,
-            ssh_pkey=self.ssh_pkey,
-            remote_bind_address=('localhost', db_mongo_port),
-            local_bind_address=('localhost', db_mongo_port)
-        )
-        self.tunnel.start()
-        print('Conexão SSH estabelecida Mongo')
+        if not MongoDB._tunnel:
+            MongoDB._tunnel = SSHTunnelForwarder(
+                (self.ssh_host, 22),
+                ssh_username=self.ssh_username,
+                ssh_pkey=self.ssh_pkey,
+                remote_bind_address=('127.0.0.1', db_mongo_port),
+                local_bind_address=('127.0.0.1', db_mongo_port)
+            )
+            MongoDB._tunnel.start()
+            print('Conexão SSH estabelecida Mongo')
+
         # Conexão com o MongoDB usando a porta tunelada
-        client = MongoClient('localhost', port=self.tunnel.local_bind_port)
+        client = MongoClient('localhost', port=MongoDB._tunnel.local_bind_port)
         self.db = client[self.db_name]
         self.collection = self.db[self.collection_name]
 
-    def find_data(self, query=None):
+    def find_data(self, query=None, limit=False):
         if query:
             data = list(self.collection.find(query))
         else:
             data = list(self.collection.find())
+
+        if limit:
+            data = data[:limit]
+
         return data
 
-    def close_connection(self):
-        self.tunnel.stop()
+    def close_connection(cls):
+        if cls._tunnel:
+            cls._tunnel.stop()
 
 
 class SSHMySQL:
@@ -72,34 +82,48 @@ class SSHMySQL:
         self.connection = None
 
     def start_ssh_tunnel(self):
-        # Inicia o túnel SSH
-        self.server = sshtunnel.SSHTunnelForwarder(
-            ssh_address_or_host=(self.ssh_host, 22),
-            ssh_username=self.ssh_username,
-            ssh_pkey=self.ssh_pkey_path,
-            local_bind_address=('127.0.0.1', db_mysql_port),
-            remote_bind_address=(self.mysql_host, db_mysql_port)
-        )
-        self.server.start()
-        print('Conexão SSH estabelecida Mysql')
+        # Inicia o túnel SSH se ainda não estiver estabelecido
+        if self.server is None or not self.server.is_active:
+            self.server = sshtunnel.SSHTunnelForwarder(
+                ssh_address_or_host=(self.ssh_host, 22),
+                ssh_username=self.ssh_username,
+                ssh_pkey=self.ssh_pkey_path,
+                local_bind_address=('127.0.0.1', db_mysql_port),
+                remote_bind_address=(self.mysql_host, db_mysql_port)
+            )
+            self.server.start()
+            print('Conexão SSH estabelecida Mysql')
 
     def stop_ssh_tunnel(self):
-        # Encerra o túnel SSH
-        self.server.stop()
+        # Encerra o túnel SSH se estiver aberto
+        if self.server is not None and self.server.is_active:
+            self.server.stop()
 
     def open_connection_mysql(self):
-        # Inicia o túnel SSH e retorna a conexão com o MySQL
-        self.connection = pymysql.connect(
-            host='localhost',
-            user=self.mysql_user,
-            password=self.mysql_password,
-            database=self.mysql_db,
-            port=self.server.local_bind_port,
-            cursorclass=pymysql.cursors.DictCursor,
-        )
-        print('Conexão Mysql efetuada')
-        return self.connection
+        if self.connection is not None and self.connection.open:
+            return self.connection
+        else:
+            # Inicia o túnel SSH se ainda não estiver estabelecido e retorna a conexão com o MySQL
+            mhost = db_mysql_host
+            mport = db_mysql_port
+            if db_mysql_use_ssh == 'true':
+                self.start_ssh_tunnel()
+                mhost = 'localhost'
+                mport = self.server.local_bind_port
+            self.connection = pymysql.connect(
+                host=mhost,
+                user=self.mysql_user,
+                password=self.mysql_password,
+                database=self.mysql_db,
+                port=mport,
+                cursorclass=pymysql.cursors.DictCursor,
+            )
+            print('Conexão Mysql efetuada')
+            return self.connection
 
     def close_connection_mysql(self):
-        # Encerra a conexão com o MySQL e o túnel SSH
-        self.connection.close()
+        # Encerra a conexão com o MySQL se estiver aberta e o túnel SSH se estiver aberto
+        if self.connection is not None and self.connection.open:
+            self.connection.close()
+        if db_mysql_use_ssh == 'true':
+            self.stop_ssh_tunnel()
