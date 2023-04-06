@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import io
 import paramiko
+import random
 
 load_dotenv()
 
@@ -36,36 +37,44 @@ class MongoDB:
         self._create_connection()
 
     def _create_connection(self):
-        if not MongoDB._tunnel:
+        if MongoDB._tunnel is None or not MongoDB._tunnel.is_active:
+            # Set the range of ports to use
+            local_port = range(10000, 20000)
+
+            # Choose a random port from the range
+            port = random.choice(local_port)
             MongoDB._tunnel = SSHTunnelForwarder(
                 (self.ssh_host, 22),
                 ssh_username=self.ssh_username,
                 ssh_pkey=self.ssh_pkey,
                 remote_bind_address=('127.0.0.1', db_mongo_port),
-                local_bind_address=('127.0.0.1', db_mongo_port)
+                local_bind_address=('127.0.0.1', port)
             )
             MongoDB._tunnel.start()
             print('Conexão SSH estabelecida Mongo')
+
+        elif MongoDB._tunnel.is_active:
+            print('Reutilizando conexão SSH estabelecida Mongo')
 
         # Conexão com o MongoDB usando a porta tunelada
         client = MongoClient('localhost', port=MongoDB._tunnel.local_bind_port)
         self.db = client[self.db_name]
         self.collection = self.db[self.collection_name]
 
-    def find_data(self, query=None, limit=False):
-        if query:
-            data = list(self.collection.find(query))
-        else:
-            data = list(self.collection.find())
+    def find_data(self, query=None, limit=False, fields=None):
+        projection = fields or {}
+        query = query or {}
 
         if limit:
-            data = data[:limit]
+            return list(self.collection.find(query, projection).limit(limit))
 
-        return data
+        return list(self.collection.find(query, projection))
+
 
     def close_connection(cls):
         if cls._tunnel:
             cls._tunnel.stop()
+            print('Conexão SSH encerrada Mongo')
 
 
 class SSHMySQL:
@@ -83,7 +92,7 @@ class SSHMySQL:
 
     def start_ssh_tunnel(self):
         # Inicia o túnel SSH se ainda não estiver estabelecido
-        if self.server is None or not self.server.is_active:
+        if self.server is None and self.server.is_active:
             self.server = sshtunnel.SSHTunnelForwarder(
                 ssh_address_or_host=(self.ssh_host, 22),
                 ssh_username=self.ssh_username,
